@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="每日預算">
+<title>每日預算</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e8edf1;--card:#fff;--ink:#14213d;--mute:#6b7788;--line:#d3dbe3;--bar:#2f6fed;--neg:#c8372d;--btn:#14213d;--onbtn:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10151c;--card:#1a212b;--ink:#e9eef5;--mute:#8d99aa;--line:#2b3441;--bar:#6f9bff;--neg:#ff7a6e;--btn:#e9eef5;--onbtn:#10151c}}
+:root[data-theme="dark"]{--bg:#10151c;--card:#1a212b;--ink:#e9eef5;--mute:#8d99aa;--line:#2b3441;--bar:#6f9bff;--neg:#ff7a6e;--btn:#e9eef5;--onbtn:#10151c}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif}
+main{max-width:480px;margin:0 auto;padding:20px 18px 40px}
+.num{font-family:"Space Grotesk",-apple-system,sans-serif;font-variant-numeric:tabular-nums}
+.hero{padding:18px 4px 6px}
+.hero small{color:var(--mute);font-size:14px}
+.left{font-size:72px;font-weight:700;line-height:1.05;letter-spacing:-2px;margin:4px 0 14px}
+.left.neg{color:var(--neg)}
+.track{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.fill{height:100%;background:var(--bar);width:0;transition:width .35s}
+.neg~.track .fill,.over{background:var(--neg)}
+.meta{display:flex;justify-content:space-between;color:var(--mute);font-size:13px;margin-top:8px}
+.add{display:flex;gap:10px;margin:22px 0 10px}
+.add input{font:inherit;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:14px;min-width:0}
+#amt{flex:1;font-size:26px;font-weight:700}
+#note{flex:1.2;font-size:16px}
+.add input:focus,button:focus-visible,summary:focus-visible,textarea:focus-visible{outline:2px solid var(--bar);outline-offset:2px}
+button{font:inherit;cursor:pointer;border:0;border-radius:12px}
+#go{width:100%;padding:16px;background:var(--btn);color:var(--onbtn);font-weight:700;font-size:18px;margin-bottom:22px}
+#go:active{transform:scale(.98)}
+.month{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:14px 4px}
+.month b{font-size:28px}
+.month span{color:var(--mute);font-size:14px}
+h2{font-size:15px;margin:24px 4px 8px;color:var(--mute);font-weight:500}
+ul{list-style:none;margin:0;padding:0;background:var(--card);border-radius:14px}
+li{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+li:last-child{border:0}
+li .t{color:var(--mute);font-size:12px;width:44px}
+li .n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px}
+li .a{font-weight:700}
+li button{background:none;color:var(--mute);font-size:18px;padding:4px 8px}
+.empty{padding:16px;color:var(--mute);font-size:14px;text-align:center;background:var(--card);border-radius:14px}
+details{margin-top:26px;color:var(--mute);font-size:14px}
+summary{cursor:pointer;padding:6px 4px}
+.set{display:flex;align-items:center;gap:10px;margin:10px 4px}
+.set input{width:110px;font:inherit;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:8px 10px}
+textarea{width:100%;height:90px;margin-top:8px;font:12px monospace;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:8px}
+.row{display:flex;gap:8px;margin-top:8px}
+.row button{flex:1;padding:10px;background:var(--card);color:var(--ink);border:1.5px solid var(--line)}
+#msg{margin:8px 4px 0;min-height:18px}
+</style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <small>今日剩餘</small>
+    <div class="left num" id="left">0</div>
+    <div class="track"><div class="fill" id="fill"></div></div>
+    <div class="meta"><span id="spent"></span><span id="quota"></span></div>
+  </section>
+
+  <div class="add">
+    <input id="amt" class="num" type="number" inputmode="decimal" placeholder="金額" aria-label="支出金額">
+    <input id="note" type="text" placeholder="備註（可不填）" aria-label="備註">
+  </div>
+  <button id="go">記一筆支出</button>
+
+  <div class="month">
+    <span>本月累計支出</span>
+    <b class="num" id="month">0</b>
+  </div>
+  <div class="month" style="border-top:0">
+    <span>本月日均</span>
+    <b class="num" id="avg" style="font-size:20px">0</b>
+  </div>
+
+  <h2>今日明細</h2>
+  <div id="list"></div>
+
+  <details>
+    <summary>設定與備份</summary>
+    <div class="set"><label for="daily">每日額度</label><input id="daily" class="num" type="number" inputmode="decimal"><button id="saveDaily" style="padding:8px 14px;background:var(--btn);color:var(--onbtn)">儲存</button></div>
+    <textarea id="bk" placeholder="備份資料會顯示在這裡；要還原時貼上後按匯入" aria-label="備份資料"></textarea>
+    <div class="row"><button id="exp">匯出備份</button><button id="imp">匯入還原</button></div>
+    <div id="msg" role="status"></div>
+  </details>
+</main>
+
+<script>
+(function(){
+var KEY='daily-budget-v1', S={daily:500,entries:[]};
+try{var r=localStorage.getItem(KEY); if(r){var p=JSON.parse(r); if(p&&Array.isArray(p.entries)) S=p;}}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+var $=function(i){return document.getElementById(i)};
+var pad=function(n){return String(n).padStart(2,'0')};
+function dk(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function fmt(n){return (Math.round(n*100)/100).toLocaleString('en-US')}
+function sum(a){return a.reduce(function(s,e){return s+e.a},0)}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+function render(){
+  var now=new Date(), today=dk(now), ym=today.slice(0,7);
+  var te=S.entries.filter(function(e){return e.d===today});
+  var me=S.entries.filter(function(e){return e.d.slice(0,7)===ym});
+  var spent=sum(te), left=S.daily-spent, ms=sum(me);
+  var L=$('left'); L.textContent=(left<0?'-':'')+fmt(Math.abs(left)); L.className='left num'+(left<0?' neg':'');
+  var pct=S.daily>0?Math.min(100,spent/S.daily*100):0;
+  $('fill').style.width=pct+'%'; $('fill').className='fill'+(left<0?' over':'');
+  $('spent').textContent='今日已花 '+fmt(spent); $('quota').textContent='每日額度 '+fmt(S.daily);
+  $('month').textContent=fmt(ms); $('avg').textContent=fmt(ms/now.getDate());
+  $('daily').value=S.daily;
+  var box=$('list');
+  if(!te.length){box.innerHTML='<div class="empty">今天還沒有支出</div>';}
+  else{
+    box.innerHTML='<ul>'+te.slice().reverse().map(function(e){
+      return '<li><span class="t num">'+esc(e.t)+'</span><span class="n">'+esc(e.n||'')+'</span><span class="a num">'+fmt(e.a)+'</span><button data-id="'+e.id+'" aria-label="刪除這筆">✕</button></li>';
+    }).join('')+'</ul>';
+  }
+}
+
+function add(){
+  var a=parseFloat($('amt').value);
+  if(!isFinite(a)||a===0){$('amt').focus();return;}
+  var n=new Date();
+  S.entries.push({id:n.getTime()+''+Math.floor(Math.random()*1000),d:dk(n),t:pad(n.getHours())+':'+pad(n.getMinutes()),a:Math.round(a*100)/100,n:$('note').value.trim()});
+  save(); $('amt').value=''; $('note').value=''; render(); $('amt').focus();
+}
+$('go').onclick=add;
+$('amt').addEventListener('keydown',function(e){if(e.key==='Enter')add()});
+$('note').addEventListener('keydown',function(e){if(e.key==='Enter')add()});
+$('list').addEventListener('click',function(e){
+  var id=e.target.getAttribute&&e.target.getAttribute('data-id'); if(!id)return;
+  S.entries=S.entries.filter(function(x){return x.id!==id}); save(); render();
+});
+$('saveDaily').onclick=function(){
+  var v=parseFloat($('daily').value);
+  if(!isFinite(v)||v<0){msg('請輸入有效的額度');return;}
+  S.daily=v; save(); render(); msg('已更新每日額度');
+};
+function msg(t){$('msg').textContent=t}
+$('exp').onclick=function(){
+  var s=JSON.stringify(S); $('bk').value=s;
+  try{navigator.clipboard.writeText(s).then(function(){msg('已複製，可貼到備忘錄保存')},function(){msg('請手動全選複製上方文字')});}
+  catch(e){msg('請手動全選複製上方文字')}
+};
+$('imp').onclick=function(){
+  try{
+    var p=JSON.parse($('bk').value);
+    if(!p||!Array.isArray(p.entries)||typeof p.daily!=='number') throw 0;
+    S=p; save(); render(); msg('已還原 '+S.entries.length+' 筆紀錄');
+  }catch(e){msg('格式不正確，請貼上完整的備份文字')}
+};
+document.addEventListener('visibilitychange',function(){if(!document.hidden)render()});
+setInterval(render,60000);
+render();
+})();
+</script>
+</body>
+</html>
