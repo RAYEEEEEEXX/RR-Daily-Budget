@@ -35,6 +35,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:12px}
 .month{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:14px 4px}
 .month b{font-size:28px}
 .month span{color:var(--mute);font-size:14px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.cw{text-align:center;color:var(--mute);font-size:12px;padding:4px 0}.cd{aspect-ratio:1/1.15;min-width:0;background:var(--card);color:var(--ink);border:1.5px solid transparent;border-radius:10px;padding:5px 1px;display:flex;flex-direction:column;align-items:center;gap:3px}.cd .dn{font-size:13px;font-weight:700}.cd .am{font-size:11px;font-weight:700}.cd.we{background:transparent;border-color:var(--line)}.cd.today .dn{color:var(--bar)}.cd.sel{border-color:var(--bar);background:var(--card)}.cd.over .am{color:var(--neg)}.cd.mu .am{color:var(--mute)}
 .hnav{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px}.hnav button{width:44px;height:40px;background:var(--card);color:var(--ink);border:1.5px solid var(--line);font-size:20px}.hnav button:disabled{opacity:.35}.hnav span{font-weight:700;font-size:18px}.hsum{display:flex;justify-content:space-between;padding:4px 4px 10px;color:var(--mute);font-size:14px}.hsum b{color:var(--ink);font-size:18px}.dh{display:flex;justify-content:space-between;margin:14px 4px 6px;font-size:14px;font-weight:700}.dh.we{color:var(--mute)}
 .chk{display:flex;align-items:center;gap:10px;margin:14px 4px 0;color:var(--mute);font-size:14px}.chk input{width:20px;height:20px;accent-color:var(--bar)}
 h2{font-size:15px;margin:24px 4px 8px;color:var(--mute);font-weight:500}
@@ -100,7 +101,7 @@ textarea{width:100%;height:90px;margin-top:8px;font:12px monospace;border:1.5px 
 
 <script>
 (function(){
-var KEY='daily-budget-v1', S={daily:500,exw:false,entries:[]}, vm=null;
+var KEY='daily-budget-v1', S={daily:500,exw:false,entries:[]}, vm=null, sel=null;
 try{var r=localStorage.getItem(KEY); if(r){var p=JSON.parse(r); if(p&&Array.isArray(p.entries)) S=p;}}catch(e){}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 var $=function(i){return document.getElementById(i)};
@@ -134,20 +135,28 @@ function render(){
 }
 
 function renderHist(){
-  var cur=dk(new Date()).slice(0,7); if(!vm)vm=cur;
-  $('hm').textContent=vm; $('hn').disabled=vm>=cur;
-  var es=S.entries.filter(function(e){return e.d.slice(0,7)===vm}), box=$('hist');
-  if(!es.length){box.innerHTML='<div class="empty">這個月沒有紀錄</div>';return;}
-  var g={}; es.forEach(function(e){(g[e.d]=g[e.d]||[]).push(e)});
+  var cur=dk(new Date()); if(!vm)vm=cur.slice(0,7);
+  $('hm').textContent=vm; $('hn').disabled=vm>=cur.slice(0,7);
+  var y=+vm.slice(0,4), m=+vm.slice(5,7)-1, n=new Date(y,m+1,0).getDate(), first=new Date(y,m,1).getDay();
+  var es=S.entries.filter(function(e){return e.d.slice(0,7)===vm}), g={};
+  es.forEach(function(e){(g[e.d]=g[e.d]||[]).push(e)});
   var tot=sum(es.filter(function(e){return !(S.exw&&isWe(e.d))}));
-  var h='<div class="hsum"><span>'+(S.exw?'當月合計（不含六日）':'當月合計')+' · '+es.length+' 筆</span><b class="num">'+fmt(tot)+'</b></div>';
-  Object.keys(g).sort().reverse().forEach(function(d){
-    var l=g[d], w=new Date(+d.slice(0,4),+d.slice(5,7)-1,+d.slice(8,10)).getDay();
-    h+='<div class="dh'+(w===0||w===6?' we':'')+'"><span class="num">'+d.slice(5)+' 週'+'日一二三四五六'.charAt(w)+'</span><span class="num">'+fmt(sum(l))+'</span></div><ul>'+l.slice().reverse().map(function(e){
+  var h='<div class="hsum"><span>'+(S.exw?'當月合計（不含六日）':'當月合計')+' · '+es.length+' 筆</span><b class="num">'+fmt(tot)+'</b></div><div class="cal">';
+  '日一二三四五六'.split('').forEach(function(c){h+='<div class="cw">'+c+'</div>'});
+  for(var i=0;i<first;i++)h+='<div></div>';
+  for(var d=1;d<=n;d++){
+    var k=vm+'-'+pad(d), l=g[k], t=l?sum(l):0, we=isWe(k);
+    h+='<button class="cd'+(we?' we':'')+(S.exw&&we?' mu':'')+(k===cur?' today':'')+(k===sel?' sel':'')+(t>S.daily?' over':'')+'" data-day="'+k+'"><span class="dn num">'+d+'</span>'+(l?'<span class="am num">'+fmt(t)+'</span>':'')+'</button>';
+  }
+  h+='</div>';
+  if(sel&&sel.slice(0,7)===vm){
+    var dl=g[sel]||[], w=new Date(+sel.slice(0,4),+sel.slice(5,7)-1,+sel.slice(8,10)).getDay();
+    h+='<div class="dh"><span class="num">'+sel.slice(5)+' 週'+'日一二三四五六'.charAt(w)+'</span><span class="num">合計 '+fmt(sum(dl))+'</span></div>';
+    h+=dl.length?'<ul>'+dl.slice().reverse().map(function(e){
       return '<li><span class="t num">'+esc(e.t)+'</span><span class="n">'+esc(e.n||'')+'</span><span class="a num">'+fmt(e.a)+'</span><button data-id="'+e.id+'" aria-label="刪除這筆">✕</button></li>';
-    }).join('')+'</ul>';
-  });
-  box.innerHTML=h;
+    }).join('')+'</ul>':'<div class="empty">這天沒有紀錄</div>';
+  }else h+='<div class="empty" style="margin-top:12px">點選日期查看細項</div>';
+  $('hist').innerHTML=h;
 }
 
 function add(){
@@ -164,10 +173,12 @@ $('list').addEventListener('click',function(e){
   var id=e.target.getAttribute&&e.target.getAttribute('data-id'); if(!id)return;
   S.entries=S.entries.filter(function(x){return x.id!==id}); save(); render();
 });
-function shift(n){var d=new Date(+vm.slice(0,4),+vm.slice(5,7)-1+n,1);vm=d.getFullYear()+'-'+pad(d.getMonth()+1);renderHist();}
+function shift(n){var d=new Date(+vm.slice(0,4),+vm.slice(5,7)-1+n,1);vm=d.getFullYear()+'-'+pad(d.getMonth()+1);sel=null;renderHist();}
 $('hp').onclick=function(){shift(-1)};
 $('hn').onclick=function(){shift(1)};
 $('hist').addEventListener('click',function(e){
+  var c=e.target.closest&&e.target.closest('[data-day]');
+  if(c){sel=c.getAttribute('data-day'); renderHist(); return;}
   var id=e.target.getAttribute&&e.target.getAttribute('data-id'); if(!id)return;
   S.entries=S.entries.filter(function(x){return x.id!==id}); save(); render();
 });
