@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="RR-Daily-Budget">
-<title>RR-Daily-Budget</title>
+<meta name="apple-mobile-web-app-title" content="每日預算">
+<title>每日預算</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#e8edf1;--card:#fff;--ink:#14213d;--mute:#6b7788;--line:#d3dbe3;--bar:#2f6fed;--neg:#c8372d;--btn:#14213d;--onbtn:#fff;
@@ -35,6 +35,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:12px}
 .month{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:14px 4px}
 .month b{font-size:28px}
 .month span{color:var(--mute);font-size:14px}
+.chk{display:flex;align-items:center;gap:10px;margin:14px 4px 0;color:var(--mute);font-size:14px}.chk input{width:20px;height:20px;accent-color:var(--bar)}
 h2{font-size:15px;margin:24px 4px 8px;color:var(--mute);font-weight:500}
 ul{list-style:none;margin:0;padding:0;background:var(--card);border-radius:14px}
 li{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
@@ -70,13 +71,15 @@ textarea{width:100%;height:90px;margin-top:8px;font:12px monospace;border:1.5px 
   <button id="go">記一筆支出</button>
 
   <div class="month">
-    <span>本月累計支出</span>
+    <span id="mlabel">本月累計支出</span>
     <b class="num" id="month">0</b>
   </div>
   <div class="month" style="border-top:0">
     <span>本月日均</span>
     <b class="num" id="avg" style="font-size:20px">0</b>
   </div>
+
+  <label class="chk"><input type="checkbox" id="exw"> 本月統計排除六日</label>
 
   <h2>今日明細</h2>
   <div id="list"></div>
@@ -92,7 +95,7 @@ textarea{width:100%;height:90px;margin-top:8px;font:12px monospace;border:1.5px 
 
 <script>
 (function(){
-var KEY='daily-budget-v1', S={daily:500,entries:[]};
+var KEY='daily-budget-v1', S={daily:500,exw:false,entries:[]};
 try{var r=localStorage.getItem(KEY); if(r){var p=JSON.parse(r); if(p&&Array.isArray(p.entries)) S=p;}}catch(e){}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 var $=function(i){return document.getElementById(i)};
@@ -100,19 +103,22 @@ var pad=function(n){return String(n).padStart(2,'0')};
 function dk(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 function fmt(n){return (Math.round(n*100)/100).toLocaleString('en-US')}
 function sum(a){return a.reduce(function(s,e){return s+e.a},0)}
+function isWe(d){var w=new Date(+d.slice(0,4),+d.slice(5,7)-1,+d.slice(8,10)).getDay();return w===0||w===6}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 
 function render(){
   var now=new Date(), today=dk(now), ym=today.slice(0,7);
   var te=S.entries.filter(function(e){return e.d===today});
-  var me=S.entries.filter(function(e){return e.d.slice(0,7)===ym});
+  var me=S.entries.filter(function(e){return e.d.slice(0,7)===ym&&!(S.exw&&isWe(e.d))});
   var spent=sum(te), left=S.daily-spent, ms=sum(me);
   var L=$('left'); L.textContent=(left<0?'-':'')+fmt(Math.abs(left)); L.className='left num'+(left<0?' neg':'');
   var pct=S.daily>0?Math.min(100,spent/S.daily*100):0;
   $('fill').style.width=pct+'%'; $('fill').className='fill'+(left<0?' over':'');
   $('spent').textContent='今日已花 '+fmt(spent); $('quota').textContent='每日額度 '+fmt(S.daily);
-  $('month').textContent=fmt(ms); $('avg').textContent=fmt(ms/now.getDate());
-  $('daily').value=S.daily;
+  var days=0; for(var i=1;i<=now.getDate();i++){var wd=new Date(now.getFullYear(),now.getMonth(),i).getDay(); if(!(S.exw&&(wd===0||wd===6)))days++}
+  $('month').textContent=fmt(ms); $('avg').textContent=fmt(days?ms/days:0);
+  $('mlabel').textContent=S.exw?'本月累計支出（不含六日）':'本月累計支出';
+  $('daily').value=S.daily; $('exw').checked=!!S.exw;
   var box=$('list');
   if(!te.length){box.innerHTML='<div class="empty">今天還沒有支出</div>';}
   else{
@@ -136,6 +142,7 @@ $('list').addEventListener('click',function(e){
   var id=e.target.getAttribute&&e.target.getAttribute('data-id'); if(!id)return;
   S.entries=S.entries.filter(function(x){return x.id!==id}); save(); render();
 });
+$('exw').onchange=function(){S.exw=this.checked; save(); render();};
 $('saveDaily').onclick=function(){
   var v=parseFloat($('daily').value);
   if(!isFinite(v)||v<0){msg('請輸入有效的額度');return;}
